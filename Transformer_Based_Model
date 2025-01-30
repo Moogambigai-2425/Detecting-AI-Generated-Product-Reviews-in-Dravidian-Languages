@@ -1,0 +1,542 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+"""Load and Train the Tamil Dataset"""
+
+import pandas as pd
+
+# Load the Tamil dataset
+tam_data = pd.read_csv('/content/drive/MyDrive/tam_training_data_hum_ai - tam_training_data_hum_ai.csv')
+
+# Display the first few rows
+print("Tamil Dataset Sample:")
+print(tam_data.head())
+
+"""Preprocess the Data"""
+
+# Clean the text
+import re
+
+def clean_text(text):
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+tam_data['DATA'] = tam_data['DATA'].apply(clean_text)
+
+# Convert labels to numeric format
+tam_data['LABEL'] = tam_data['LABEL'].map({'HUMAN': 0, 'AI': 1})
+
+# Display processed data
+print(tam_data.head())
+
+"""Tokenize the Text"""
+
+from transformers import AutoTokenizer
+from sklearn.model_selection import train_test_split
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+# Load the tokenizer for Indic-BERT
+tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-bert")
+
+# Tokenize the text data
+tokens = tokenizer(
+    list(tam_data['DATA']),
+    max_length=128,  # Set a suitable maximum length
+    padding='max_length',
+    truncation=True,
+    return_tensors='pt'
+)
+
+# Split the data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(
+    tokens['input_ids'], tam_data['LABEL'].values, test_size=0.2, random_state=42
+)
+
+# Convert attention masks similarly
+train_masks, val_masks = train_test_split(tokens['attention_mask'], test_size=0.2, random_state=42)
+
+# Create TensorDatasets for PyTorch DataLoader
+train_data = TensorDataset(X_train, train_masks, torch.tensor(y_train))
+val_data = TensorDataset(X_val, val_masks, torch.tensor(y_val))
+
+# Create DataLoaders for batch processing
+train_loader = DataLoader(train_data, batch_size=16, shuffle=True)
+val_loader = DataLoader(val_data, batch_size=16)
+
+""" Load and Train the BERT Model"""
+
+import torch
+from transformers import AutoModelForSequenceClassification, AdamW
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+# Load pre-trained Indic-BERT model for sequence classification
+model = AutoModelForSequenceClassification.from_pretrained("ai4bharat/indic-bert", num_labels=2)
+
+# Define optimizer
+optimizer = AdamW(model.parameters(), lr=5e-5)
+
+# Define loss function
+loss_function = torch.nn.CrossEntropyLoss()
+
+# Set device to CPU
+device = torch.device("cpu")  # Force CPU usage
+model.to(device)
+
+"""Training Loop"""
+
+# Training loop
+def train_model(model, train_loader, optimizer, loss_function, device, epochs=3):
+    model.train()  # Set the model to training mode
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
+        epoch_loss = 0
+        correct_predictions = 0
+        total_predictions = 0
+
+        # Iterate over batches
+        for batch in tqdm(train_loader):
+            # Move inputs and labels to device
+            input_ids, attention_masks, labels = [x.to(device) for x in batch]
+
+            # Zero the gradients
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputs = model(input_ids, attention_mask=attention_masks)
+            logits = outputs.logits
+
+            # Compute loss
+            loss = loss_function(logits, labels)
+            epoch_loss += loss.item()
+
+            # Backward pass and optimization
+            loss.backward()
+            optimizer.step()
+
+            # Calculate accuracy
+            _, preds = torch.max(logits, dim=1)
+            correct_predictions += torch.sum(preds == labels)
+            total_predictions += labels.size(0)
+
+        accuracy = correct_predictions.double() / total_predictions
+        print(f"Loss: {epoch_loss:.4f}, Accuracy: {accuracy:.4f}")
+
+# Training the model on CPU
+train_model(model, train_loader, optimizer, loss_function, device)
+
+"""Evaluate the Model"""
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.utils.class_weight import compute_class_weight
+import torch
+
+# Function to evaluate the model
+def evaluate_model(model, val_loader, device, loss_function):
+    model.eval()  # Set the model to evaluation mode
+    true_labels = []
+    predictions = []
+    val_loss = 0  # Track validation loss
+
+    with torch.no_grad():  # No gradient computation needed during evaluation
+        for batch in val_loader:
+            input_ids, attention_masks, labels = [x.to(device) for x in batch]
+
+            # Forward pass
+            outputs = model(input_ids, attention_mask=attention_masks)
+            logits = outputs.logits
+
+            # Compute loss
+            val_loss += loss_function(logits, labels).item()
+
+            # Get predicted classes
+            _, preds = torch.max(logits, dim=1)
+
+            # Store true labels and predictions
+            true_labels.extend(labels.cpu().numpy())
+            predictions.extend(preds.cpu().numpy())
+
+    # Calculate metrics
+    accuracy = accuracy_score(true_labels, predictions)
+    precision = precision_score(true_labels, predictions, average="binary", zero_division=1)
+    recall = recall_score(true_labels, predictions, average="binary", zero_division=1)
+    f1 = f1_score(true_labels, predictions, average="binary", zero_division=1)
+
+    print(f"Validation Loss: {val_loss:.4f}")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+
+    return accuracy, precision, recall, f1
+
+
+# Run the updated evaluation
+evaluate_model(model, val_loader, device, loss_function)
+
+"""Load and Train the malayalam Dataset"""
+
+import pandas as pd
+
+# Load the Tamil dataset
+tam_data = pd.read_csv('/content/drive/MyDrive/mal_training_data_hum_ai - mal_training_data_hum_ai.csv')
+
+# Display the first few rows
+print("Tamil Dataset Sample:")
+print(tam_data.head())
+
+# Clean the text
+import re
+
+def clean_text(text):
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+tam_data['DATA'] = tam_data['DATA'].apply(clean_text)
+
+# Convert labels to numeric format
+tam_data['LABEL'] = tam_data['LABEL'].map({'HUMAN': 0, 'AI': 1})
+
+# Display processed data
+print(tam_data.head())
+
+from transformers import AutoTokenizer
+from sklearn.model_selection import train_test_split
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+# Load the tokenizer for Indic-BERT
+tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-bert")
+
+# Tokenize the text data
+tokens = tokenizer(
+    list(tam_data['DATA']),
+    max_length=128,  # Set a suitable maximum length
+    padding='max_length',
+    truncation=True,
+    return_tensors='pt'
+)
+
+# Split the data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(
+    tokens['input_ids'], tam_data['LABEL'].values, test_size=0.2, random_state=42
+)
+
+# Convert attention masks similarly
+train_masks, val_masks = train_test_split(tokens['attention_mask'], test_size=0.2, random_state=42)
+
+# Create TensorDatasets for PyTorch DataLoader
+train_data = TensorDataset(X_train, train_masks, torch.tensor(y_train))
+val_data = TensorDataset(X_val, val_masks, torch.tensor(y_val))
+
+# Create DataLoaders for batch processing
+train_loader = DataLoader(train_data, batch_size=16, shuffle=True)
+val_loader = DataLoader(val_data, batch_size=16)
+
+import torch
+from transformers import AutoModelForSequenceClassification, AdamW
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+# Load pre-trained Indic-BERT model for sequence classification
+model = AutoModelForSequenceClassification.from_pretrained("ai4bharat/indic-bert", num_labels=2)
+
+# Define optimizer
+optimizer = AdamW(model.parameters(), lr=5e-5)
+
+# Define loss function
+loss_function = torch.nn.CrossEntropyLoss()
+
+# Set device to CPU
+device = torch.device("cpu")  # Force CPU usage
+model.to(device)
+# Training loop
+def train_model(model, train_loader, optimizer, loss_function, device, epochs=3):
+    model.train()  # Set the model to training mode
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
+        epoch_loss = 0
+        correct_predictions = 0
+        total_predictions = 0
+
+        # Iterate over batches
+        for batch in tqdm(train_loader):
+            # Move inputs and labels to device
+            input_ids, attention_masks, labels = [x.to(device) for x in batch]
+
+            # Zero the gradients
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputs = model(input_ids, attention_mask=attention_masks)
+            logits = outputs.logits
+
+            # Compute loss
+            loss = loss_function(logits, labels)
+            epoch_loss += loss.item()
+
+            # Backward pass and optimization
+            loss.backward()
+            optimizer.step()
+
+            # Calculate accuracy
+            _, preds = torch.max(logits, dim=1)
+            correct_predictions += torch.sum(preds == labels)
+            total_predictions += labels.size(0)
+
+        accuracy = correct_predictions.double() / total_predictions
+        print(f"Loss: {epoch_loss:.4f}, Accuracy: {accuracy:.4f}")
+
+# Training the model on CPU
+train_model(model, train_loader, optimizer, loss_function, device)
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.utils.class_weight import compute_class_weight
+import torch
+
+# Function to evaluate the model
+def evaluate_model(model, val_loader, device, loss_function):
+    model.eval()  # Set the model to evaluation mode
+    true_labels = []
+    predictions = []
+    val_loss = 0  # Track validation loss
+
+    with torch.no_grad():  # No gradient computation needed during evaluation
+        for batch in val_loader:
+            input_ids, attention_masks, labels = [x.to(device) for x in batch]
+
+            # Forward pass
+            outputs = model(input_ids, attention_mask=attention_masks)
+            logits = outputs.logits
+
+            # Compute loss
+            val_loss += loss_function(logits, labels).item()
+
+            # Get predicted classes
+            _, preds = torch.max(logits, dim=1)
+
+            # Store true labels and predictions
+            true_labels.extend(labels.cpu().numpy())
+            predictions.extend(preds.cpu().numpy())
+
+    # Calculate metrics
+    accuracy = accuracy_score(true_labels, predictions)
+    precision = precision_score(true_labels, predictions, average="binary", zero_division=1)
+    recall = recall_score(true_labels, predictions, average="binary", zero_division=1)
+    f1 = f1_score(true_labels, predictions, average="binary", zero_division=1)
+
+    print(f"Validation Loss: {val_loss:.4f}")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+
+    return accuracy, precision, recall, f1
+
+
+# Run the updated evaluation
+evaluate_model(model, val_loader, device, loss_function)
+
+"""Testing Tamil with BERT"""
+
+import pandas as pd
+import re
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+from transformers import AutoTokenizer
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Path to test dataset with labels
+test_labels_path = '/content/drive/MyDrive/tam_test_label.csv'
+
+# Load the test dataset with labels
+test_labels = pd.read_csv(test_labels_path)  # Assumed to have 'Data' and 'Label' columns
+
+test_labels.rename(columns={'Data': 'DATA'}, inplace=True)
+
+# Ensure only 100 rows are considered
+test_labels = test_labels.head(100)
+
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+test_labels['DATA'] = test_labels['DATA'].apply(clean_text)
+
+# Load the tokenizer for Indic-BERT
+tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-bert")
+
+# Tokenize the test dataset
+test_tokens = tokenizer(
+    list(test_labels['DATA']),
+    max_length=128,
+    padding='max_length',
+    truncation=True,
+    return_tensors='pt'
+)
+
+# Prepare DataLoader
+test_dataset = TensorDataset(test_tokens['input_ids'], test_tokens['attention_mask'])
+test_loader = DataLoader(test_dataset, batch_size=16, drop_last=False)
+
+# Load the trained model
+model.eval()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+
+# Perform predictions
+test_predictions = []
+with torch.no_grad():
+    for batch in test_loader:
+        input_ids, attention_masks = [x.to(device) for x in batch]
+        outputs = model(input_ids, attention_mask=attention_masks)
+        logits = outputs.logits
+        preds = torch.argmax(logits, dim=1)
+        test_predictions.extend(preds.cpu().numpy())
+
+# Ensure we have 100 predictions
+test_predictions = test_predictions[:100]
+
+# Convert actual labels to numeric format (0 = HUMAN, 1 = AI)
+true_labels = [1 if label == 'AI' else 0 for label in test_labels['Label'].values]
+
+# Compute evaluation metrics
+accuracy = accuracy_score(true_labels, test_predictions)
+precision = precision_score(true_labels, test_predictions)
+recall = recall_score(true_labels, test_predictions)
+f1 = f1_score(true_labels, test_predictions)
+
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
+
+# Generate Confusion Matrix
+conf_matrix = confusion_matrix(true_labels, test_predictions)
+plt.figure(figsize=(6, 5))
+sns.heatmap(
+    conf_matrix,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=['HUMAN', 'AI'],
+    yticklabels=['HUMAN', 'AI']
+)
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+"""Testing Malayalam with BERT"""
+
+import pandas as pd
+import re
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+from transformers import AutoTokenizer
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load Malayalam test dataset (with labels)
+malayalam_test_path = "/content/drive/MyDrive/mal_test_label.csv"
+malayalam_test_data = pd.read_csv(malayalam_test_path)  # Ensure this file contains 'DATA' and 'Label' columns
+
+# Preprocess Malayalam text
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+malayalam_test_data['DATA'] = malayalam_test_data['DATA'].apply(clean_text)
+
+# Load the tokenizer for Indic-BERT
+tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-bert")
+
+# Tokenize the Malayalam test dataset
+malayalam_test_tokens = tokenizer(
+    list(malayalam_test_data['DATA']),
+    max_length=128,  # Same as training
+    padding='max_length',
+    truncation=True,
+    return_tensors='pt'
+)
+
+# Prepare DataLoader
+malayalam_test_dataset = TensorDataset(malayalam_test_tokens['input_ids'], malayalam_test_tokens['attention_mask'])
+malayalam_test_loader = DataLoader(malayalam_test_dataset, batch_size=16)
+
+# Load the trained model
+model.eval()
+
+# Move model to the appropriate device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+
+# Perform predictions for Malayalam test data
+malayalam_predictions = []
+with torch.no_grad():
+    for batch in malayalam_test_loader:
+        input_ids, attention_masks = [x.to(device) for x in batch]
+
+        # Forward pass
+        outputs = model(input_ids, attention_mask=attention_masks)
+        logits = outputs.logits
+
+        # Get predicted classes
+        preds = torch.argmax(logits, dim=1)
+        malayalam_predictions.extend(preds.cpu().numpy())
+
+# Convert true labels to numeric format (0 = HUMAN, 1 = AI)
+true_labels = [1 if label == 'AI' else 0 for label in malayalam_test_data['Label'].tolist()]
+
+# Compute evaluation metrics
+accuracy = accuracy_score(true_labels, malayalam_predictions)
+precision = precision_score(true_labels, malayalam_predictions)
+recall = recall_score(true_labels, malayalam_predictions)
+f1 = f1_score(true_labels, malayalam_predictions)
+
+print(f"Malayalam Test Accuracy: {accuracy:.4f}")
+print(f"Malayalam Precision: {precision:.4f}")
+print(f"Malayalam Recall: {recall:.4f}")
+print(f"Malayalam F1 Score: {f1:.4f}")
+
+# Generate confusion matrix
+conf_matrix_malayalam = confusion_matrix(true_labels, malayalam_predictions)
+
+# Plot confusion matrix
+plt.figure(figsize=(6, 5))
+sns.heatmap(
+    conf_matrix_malayalam,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=['HUMAN', 'AI'],
+    yticklabels=['HUMAN', 'AI']
+)
+plt.title('Malayalam Test Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+# Save predictions to CSV file
+label_mapping = {0: 'HUMAN', 1: 'AI'}
+malayalam_string_predictions = [label_mapping[label] for label in malayalam_predictions]
+
+output_df_malayalam = pd.DataFrame({
+    'DATA': malayalam_test_data['DATA'],  # Include original text
+    'Predicted Label': malayalam_string_predictions
+})
+output_file_malayalam = "malayalam_test_predictions.csv"
+output_df_malayalam.to_csv(output_file_malayalam, index=False)
+print(f"Malayalam test predictions saved to {output_file_malayalam}")
