@@ -1,0 +1,412 @@
+
+from google.colab import drive
+import pandas as pd
+
+drive.mount('/content/drive')
+
+"""LR model Tamil"""
+
+import pandas as pd
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Load and preprocess training data
+training_data_path = '/content/drive/MyDrive/tam_training_data_hum_ai - tam_training_data_hum_ai.csv'
+data = pd.read_csv(training_data_path)
+
+# Clean text function
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+data['DATA'] = data['DATA'].apply(clean_text)
+
+# Convert labels to numeric format
+data['LABEL'] = data['LABEL'].map({'HUMAN': 0, 'AI': 1})
+
+# Split data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(data['DATA'], data['LABEL'], test_size=0.2, random_state=42)
+
+# Convert text to TF-IDF features
+vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 2))
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_val_tfidf = vectorizer.transform(X_val)
+
+# Train Logistic Regression model
+lr_model = LogisticRegression(max_iter=1000, class_weight='balanced', random_state=42)
+lr_model.fit(X_train_tfidf, y_train)
+
+# Evaluate on validation data
+y_val_preds = lr_model.predict(X_val_tfidf)
+
+# Calculate metrics
+accuracy = accuracy_score(y_val, y_val_preds)
+precision = precision_score(y_val, y_val_preds, average="binary")
+recall = recall_score(y_val, y_val_preds, average="binary")
+f1 = f1_score(y_val, y_val_preds, average="binary")
+
+print(f"Validation Accuracy: {accuracy:.4f}")
+print(f"Validation Precision: {precision:.4f}")
+print(f"Validation Recall: {recall:.4f}")
+print(f"Validation F1 Score: {f1:.4f}")
+
+# Load and preprocess test data
+test_data_path = '/content/drive/MyDrive/tam_test_data_hum_ai.csv'
+test_data = pd.read_csv(test_data_path)
+
+# Check original number of rows in test data
+print(f"Original test data rows: {test_data.shape[0]}")
+
+test_data['DATA'] = test_data['DATA'].apply(clean_text)
+
+# Convert test data to TF-IDF features
+test_tfidf = vectorizer.transform(test_data['DATA'])
+
+# Predict on test data
+test_predictions = lr_model.predict(test_tfidf)
+
+# Map numeric labels to string labels
+label_mapping = {0: 'HUMAN', 1: 'AI'}
+string_predictions = [label_mapping[label] for label in test_predictions]
+
+# Check number of predictions generated
+print(f"Predictions generated: {len(string_predictions)}")
+
+# Save predictions to CSV with consistent indexing
+output_df = pd.DataFrame({
+    'ID': test_data.index,  # Use the original test data index
+    'LABEL': string_predictions  # Use string_predictions for labels
+})
+output_file = "tamil_lr_predictions.csv"
+output_df.to_csv(output_file, index=False)
+print(f"Predictions saved to {output_file}")
+from sklearn.metrics import confusion_matrix
+
+# Generate confusion matrix
+conf_matrix = confusion_matrix(y_val, y_val_preds)
+
+# Plot confusion matrix using seaborn heatmap
+plt.figure(figsize=(6, 5))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['HUMAN', 'AI'], yticklabels=['HUMAN', 'AI'])
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+
+"""LR model Malayalam"""
+
+import pandas as pd
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Load and preprocess training data
+training_data_path = '/content/drive/MyDrive/mal_training_data_hum_ai - mal_training_data_hum_ai.csv'
+data = pd.read_csv(training_data_path)
+
+# Clean text function
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = text.lower()  # Convert to lowercase
+    return text
+
+data['DATA'] = data['DATA'].apply(clean_text)
+
+# Convert labels to numeric format
+data['LABEL'] = data['LABEL'].map({'HUMAN': 0, 'AI': 1})
+
+# Split data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(data['DATA'], data['LABEL'], test_size=0.2, random_state=42)
+
+# Convert text to TF-IDF features
+vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 2))
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_val_tfidf = vectorizer.transform(X_val)
+
+# Train Logistic Regression model
+lr_model = LogisticRegression(max_iter=1000, class_weight='balanced', random_state=42)
+lr_model.fit(X_train_tfidf, y_train)
+
+# Evaluate on validation data
+y_val_preds = lr_model.predict(X_val_tfidf)
+
+# Calculate metrics
+accuracy = accuracy_score(y_val, y_val_preds)
+precision = precision_score(y_val, y_val_preds, average="binary")
+recall = recall_score(y_val, y_val_preds, average="binary")
+f1 = f1_score(y_val, y_val_preds, average="binary")
+
+print(f"Validation Accuracy: {accuracy:.4f}")
+print(f"Validation Precision: {precision:.4f}")
+print(f"Validation Recall: {recall:.4f}")
+print(f"Validation F1 Score: {f1:.4f}")
+
+# Load and preprocess test data
+test_data_path = '/content/drive/MyDrive/mal_test_data_hum_ai.csv'
+test_data = pd.read_csv(test_data_path)
+test_data['DATA'] = test_data['DATA'].apply(clean_text)
+
+# Convert test data to TF-IDF features
+test_tfidf = vectorizer.transform(test_data['DATA'])
+
+# Predict on test data
+test_predictions = lr_model.predict(test_tfidf)
+
+# Map numeric labels to string labels
+label_mapping = {0: 'HUMAN', 1: 'AI'}
+string_predictions = [label_mapping[label] for label in test_predictions]
+
+# Save predictions to CSV with string labels
+output_df = pd.DataFrame({
+    'ID': range(len(string_predictions)),  # Assuming sequential IDs
+    'LABEL': string_predictions  # Use string_predictions instead of test_predictions
+})
+output_file = "malayalam_lr_predictions.csv"
+output_df.to_csv(output_file, index=False)
+print(f"Predictions saved to {output_file}")
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+# Generate confusion matrix
+conf_matrix = confusion_matrix(y_val, y_val_preds)
+
+# Plot confusion matrix using seaborn heatmap
+plt.figure(figsize=(6, 5))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['HUMAN', 'AI'], yticklabels=['HUMAN', 'AI'])
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+"""SVM Model Tamil"""
+
+import re
+import pickle
+import seaborn as sns
+from sklearn.svm import SVC
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, precision_score, recall_score
+
+#Tamil Prediction
+
+tamil = pd.read_csv("/content/drive/My Drive/Task/tam_training_data_hum_ai - tam_training_data_hum_ai.csv")
+print(tamil.isnull().sum())
+
+tamil_data = tamil["DATA"]
+tamil_target = tamil["LABEL"]
+
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = text.lower()
+    return text
+
+tamil_data = tamil_data.apply(clean_text)
+tamil_target = tamil_target.map({'HUMAN': 0, 'AI': 1})
+
+x_train, x_test, y_train, y_test = train_test_split(tamil_data, tamil_target, test_size=0.3, random_state=42)
+
+# Using TF-IDF to convert text to numerical format
+tfidf = TfidfVectorizer(max_features=5000)
+x_train_tfidf = tfidf.fit_transform(x_train)
+x_test_tfidf = tfidf.transform(x_test)
+
+svm_model = SVC(kernel='linear', C=1, random_state=42)
+svm_model.fit(x_train_tfidf, y_train)
+
+y_pred = svm_model.predict(x_test_tfidf)
+
+
+# Save the model
+with open("svm_tamil_model.pkl", "wb") as model_file:
+    pickle.dump(svm_model, model_file)
+
+# Save the vectorizer
+with open("tfidf_vectorizer.pkl", "wb") as vectorizer_file:
+    pickle.dump(tfidf, vectorizer_file)
+
+
+def predict(text):
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Load the saved model and vectorizer
+    with open("svm_tamil_model.pkl", "rb") as model_file:
+        svm_model = pickle.load(model_file)
+    with open("tfidf_vectorizer.pkl", "rb") as vectorizer_file:
+        tfidf = pickle.load(vectorizer_file)
+
+    # Preprocess and vectorize the input text
+    text_cleaned = clean_text(text)
+    text_vectorized = tfidf.transform([text_cleaned])
+
+    # Predict the label
+    prediction = svm_model.predict(text_vectorized)
+    return "AI" if prediction[0] == 1 else "HUMAN"
+
+
+tamil_test = pd.read_csv("/content/drive/My Drive/Task/tam_test_data_hum_ai.csv")
+
+tamil_test.dropna(subset=['DATA'], inplace=True)
+print(tamil_test.isnull().sum())
+
+tamil_test["DATA"] = tamil_test["DATA"].apply(clean_text)
+
+predicted = tamil_test["DATA"].apply(predict)
+predicted = pd.Series(predicted)
+
+tamil_test = pd.read_csv("/content/drive/My Drive/Task/tam_test_data_hum_ai.csv")
+tamil_test.dropna(subset=['DATA'], inplace=True)
+
+data = {'ID':tamil_test['ID'].values,'LABEL':predicted.values}
+
+df = pd.DataFrame(data)
+
+df.to_csv("/content/drive/My Drive/Task/tamil_predicted.tsv")
+print("File saved in tamil_predicted.tsv")
+
+
+# Accuracy
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Accuracy: {accuracy:.2f}")
+
+# Precision
+precision = precision_score(y_test, y_pred, average='weighted')
+print(f"Precision: {precision:.2f}")
+
+# Recall
+recall = recall_score(y_test, y_pred, average='weighted')
+print(f"Recall: {recall:.2f}")
+
+# F1 Score
+f1 = f1_score(y_test, y_pred, average='weighted')
+print(f"F1 Score: {f1:.2f}")
+
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["HUMAN", "AI"], yticklabels=["HUMAN", "AI"])
+plt.xlabel("Predicted Labels")
+plt.ylabel("True Labels")
+plt.title("Confusion Matrix")
+plt.show()
+
+"""SVM Model Malayalam"""
+from google.colab import drive
+import pandas as pd
+
+drive.mount('/content/drive')
+
+import re
+import pickle
+import seaborn as sns
+from sklearn.svm import SVC
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, precision_score, recall_score
+
+#Malayalam Prediction
+
+mal = pd.read_csv("/content/drive/My Drive/Task/mal_training_data_hum_ai - mal_training_data_hum_ai.csv")
+print(mal.isnull().sum())
+
+mal_data = mal['DATA']
+mal_target = mal['LABEL']
+
+def clean_text(text):
+  text = re.sub(r'[^\w\s]','',text)
+  text = text.lower()
+  return text
+
+mal_data   = mal_data.apply(clean_text)
+mal_target = mal_target.map({'HUMAN':0,'AI':1})
+
+x_train_mal,x_test_mal,y_train_mal,y_test_mal = train_test_split(mal_data,mal_target,test_size=0.3,random_state=42)
+
+tfidf_model_mal = TfidfVectorizer(max_features=5000)
+x_train_tfidf = tfidf_model_mal.fit_transform(x_train_mal)
+x_test_tfidf  = tfidf_model_mal.transform(x_test_mal)
+
+svm_model_mal = SVC(kernel='linear',C=1,random_state=42)
+svm_model_mal.fit(x_train_tfidf,y_train_mal)
+
+y_test_pred = svm_model_mal.predict(x_test_tfidf)
+
+print(accuracy_score(y_test_mal,y_test_pred))
+
+print(confusion_matrix(y_test_mal,y_test_pred))
+
+print(classification_report(y_test_mal,y_test_pred))
+print(f1_score(y_test_mal,y_test_pred,average="weighted"))
+
+
+cm = confusion_matrix(y_test_mal, y_test_pred)
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["HUMAN", "AI"], yticklabels=["HUMAN", "AI"])
+plt.xlabel("Predicted Labels")
+plt.ylabel("True Labels")
+plt.title("Confusion Matrix")
+plt.show()
+
+
+# Save the model
+with open("svm_malayalam_model.pkl", "wb") as model_file:
+    pickle.dump(svm_model_mal, model_file)
+
+# Save the vectorizer
+with open("tfidf_vectorizer_malayalam.pkl", "wb") as vectorizer_file:
+    pickle.dump(tfidf_model_mal, vectorizer_file)
+
+def predict(text):
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Load the saved model and vectorizer
+    with open("svm_malayalam_model.pkl", "rb") as model_file:
+        svm_model_mal = pickle.load(model_file)
+    with open("tfidf_vectorizer_malayalam.pkl", "rb") as vectorizer_file:
+        tfidf_mal = pickle.load(vectorizer_file)
+
+    # Preprocess and vectorize the input text
+    text_cleaned = clean_text(text)
+    text_vectorized = tfidf_mal.transform([text_cleaned])
+
+    # Predict the label
+    prediction = svm_model_mal.predict(text_vectorized)
+    return "AI" if prediction[0] == 1 else "HUMAN"
+
+mal_test = pd.read_csv("/content/drive/My Drive/Task/mal_test_data_hum_ai.csv")
+
+mal_test.dropna(subset=['DATA'], inplace=True)
+print(mal_test.isnull().sum())
+
+mal_test["DATA"] = mal_test["DATA"].apply(clean_text)
+
+predicted = mal_test["DATA"].apply(predict)
+predicted = pd.Series(predicted)
+
+mal_test = pd.read_csv("/content/drive/My Drive/Task/mal_test_data_hum_ai.csv")
+mal_test.dropna(subset=['DATA'], inplace=True)
+
+data = {'ID':mal_test['ID'].values,'LABEL':predicted.values}
+
+df = pd.DataFrame(data)
+
+df.to_csv("/content/drive/My Drive/Task/malayalam_predicted.tsv")
+print("File saved in malayalam_predicted.tsv")
